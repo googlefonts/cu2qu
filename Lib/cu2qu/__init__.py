@@ -17,7 +17,7 @@ from __future__ import print_function, division, absolute_import
 
 __version__ = "1.4.1.dev0"
 
-__all__ = ['curve_to_quadratic', 'curves_to_quadratic']
+__all__ = ['curve_to_quadratic', 'curves_to_quadratic', 'quadratic_to_curve']
 
 MAX_N = 100
 
@@ -265,3 +265,47 @@ def curves_to_quadratic(curves, max_errors):
 
     raise ApproxNotFoundError(curves)
 
+
+def elevate_quadratic(p):
+    """Given a quadratic bezier curve, return its degree-elevated cubic."""
+    return [p[0], lerp_pt(p[0], p[1], 2/3), lerp_pt(p[2], p[1], 2/3), p[2]]
+
+
+def merge_curves(p):
+    """ Return the initial cubic bezier curve subdivided in two segments.
+    Input must be a sequence of 7 points, i.e. two consecutive cubic curve
+    segments sharing the middle point.
+    Inspired by an answer on math.stackexchange.com: http://goo.gl/hFFQl0
+    """
+    (x1, y1), (x2, y2), (x3, y3), (x4, y4), (x5, y5), (x6, y6), (x7, y7) = p
+    k = dist((x5, y5), (x4, y4))/dist((x4, y4), (x3, y3))
+    off1 = (1+k)*x2 - k*x1, (1+k)*y2 - k*y1
+    off2 = ((1+k)*x6 - x7)/k, ((1+k)*y6 - y7)/k
+    return [(x1, y1), off1, off2, (x7, y7)]
+
+
+def quadratic_to_curve(p):
+    """ Convert a quadratic spline to a _single_ cubic bezier curve.
+    NOTE: The accuracy of the conversion depends on whether the quadratic
+    spline was in turn generated as an approximation of a cubic bezier, as
+    well as on the approximation error.
+    """
+    # TODO(anthrotype): return a sequence of cubic curves if the distance
+    # from the input quadratic spline exceeds some user-defined tolerance?
+    assert len(p) >= 3, "quadratic spline requires at least 3 points"
+    q = list(p)
+    count = 0
+    num_offcurves = len(p) - 2
+    # if spline has more than one offcurve, insert interpolated oncurves
+    for i in range(1, num_offcurves):
+        off1 = p[i]
+        off2 = p[i+1]
+        on = lerp_pt(off1, off2, 0.5)
+        q.insert(i+1+count, on)
+        count += 1
+    # elevate quadratic segments to cubic, and join them together
+    curve = elevate_quadratic(q[:3])
+    for i in range(4, len(q), 2):
+        cubic_segment = elevate_quadratic([q[i-2], q[i-1], q[i]])
+        curve = merge_curves(curve + cubic_segment[1:])
+    return curve
