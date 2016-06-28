@@ -234,8 +234,15 @@ class BaseFilterPointPen(BasePointToSegmentPen):
                 else:
                     assert len(points) >= 3, (
                         "illegal curve segment point count: %d" % len(points))
-                for (pt, smooth, name, kwargs) in points[:-1]:
-                    pen.addPoint(pt, None, smooth, name, **kwargs)
+                offcurves = points[:-1]
+                if offcurves:
+                    if i == 0:
+                        # any off-curve points preceding the first on-curve
+                        # will be appended at the end of the contour
+                        last_offcurves = offcurves
+                    else:
+                        for (pt, smooth, name, kwargs) in offcurves:
+                            pen.addPoint(pt, None, smooth, name, **kwargs)
                 pt, smooth, name, kwargs = points[-1]
                 if pt is None:
                     # special quadratic contour with no on-curve points:
