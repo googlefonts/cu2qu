@@ -18,9 +18,10 @@ from __future__ import print_function, division, absolute_import
 from math import hypot
 from fontTools.misc import bezierTools
 
-__all__ = ['curve_to_quadratic', 'curves_to_quadratic']
+__all__ = ['curve_spline_dist', 'curve_to_quadratic', 'curves_to_quadratic']
 
 MAX_N = 100
+ORIGIN = 0, 0
 
 
 class Cu2QuError(Exception):
@@ -66,7 +67,7 @@ def dot(v1, v2):
 
 def lerp(a, b, t):
     """Linearly interpolate between scalars a and b at time t."""
-    return a * (1 - t) + b * t
+    return a + (b - a) * t
 
 
 def lerp_pt(p1, p2, t):
@@ -141,13 +142,48 @@ def cubic_approx_spline(p, n):
     return spline
 
 
-def curve_spline_dist(bezier, spline):
-    """Max distance between a bezier and quadratic spline at sampled ts."""
+def approx_good(bezier, spline, max_error):
+    """Return whether the max distance between a bezier and quadratic spline is
+    below a threshold.
+    """
 
-    TOTAL_STEPS = 20
+    n = len(spline) - 2
+    for i in range(n):
+        q0 = spline[0] if i == 0 else q2
+        q1 = spline[i + 1]
+        if i == n - 1:
+            q2 = spline[i + 2]
+        else:
+            q2 = lerp_pt(spline[i + 1], spline[i + 2], 0.5)
+        _, c1, _ = bezierTools.splitCubicAtT(
+            bezier[0], bezier[1], bezier[2], bezier[3], i / n,  (i + 1) / n)
+        c2 = (q0, lerp_pt(q0, q1, 2 / 3), lerp_pt(q2, q1, 2 / 3), q2)
+        if not single_approx_good(tuple(vector(c1[i], c2[i])
+                                  for i in range(4)), max_error):
+            return False
+    return True
+
+
+def single_approx_good(diff_bezier, max_error):
+    """Evaluate whether the difference between two beziers (given as a single
+    bezier) is within an error threshold.
+    """
+
+    p0, p1, p2, p3 = diff_bezier
+    if dist(p0, ORIGIN) > max_error or dist(p3, ORIGIN) > max_error:
+        return False
+    elif dist(p1, ORIGIN) <= max_error and dist(p2, ORIGIN) <= max_error:
+        return True
+    return all(single_approx_good(b, max_error)
+               for b in bezierTools.splitCubicAtT(p0, p1, p2, p3, 0.5))
+
+
+def curve_spline_dist(bezier, spline, total_steps=20):
+    """Max distance between a bezier and quadratic spline at sampled points."""
+
     error = 0
     n = len(spline) - 2
-    steps = TOTAL_STEPS // n
+    steps = total_steps // n
     for i in range(1, n + 1):
         segment = [
             spline[0] if i == 1 else segment[2],
@@ -161,29 +197,28 @@ def curve_spline_dist(bezier, spline):
 
 
 def curve_to_quadratic(p, max_err):
-    """Return a quadratic spline approximating this cubic bezier, and
-    the error of approximation.
+    """Return a quadratic spline approximating this cubic bezier.
+
     Raise 'ApproxNotFoundError' if no suitable approximation can be found
     with the given parameters.
     """
 
-    spline, error = None, None
+    spline = None
     for n in range(1, MAX_N + 1):
         spline = cubic_approx_spline(p, n)
         if spline is None:
             continue
-        error = curve_spline_dist(p, spline)
-        if error <= max_err:
+        if approx_good(p, spline, max_err):
             break
     else:
         # no break: approximation not found or error exceeds tolerance
-        raise ApproxNotFoundError(p, error)
-    return spline, error
+        raise ApproxNotFoundError(p)
+    return spline
 
 
 def curves_to_quadratic(curves, max_errors):
-    """Return quadratic splines approximating these cubic beziers, and
-    the respective errors of approximation.
+    """Return quadratic splines approximating these cubic beziers.
+
     Raise 'ApproxNotFoundError' if no suitable approximation can be found
     for all curves with the given parameters.
     """
@@ -192,17 +227,15 @@ def curves_to_quadratic(curves, max_errors):
     assert len(max_errors) == num_curves
 
     splines = [None] * num_curves
-    errors = [None] * num_curves
     for n in range(1, MAX_N + 1):
         splines = [cubic_approx_spline(c, n) for c in curves]
         if not all(splines):
             continue
-        errors = [curve_spline_dist(c, s) for c, s in zip(curves, splines)]
-        if all(err <= max_err for err, max_err in zip(errors, max_errors)):
+        if all(approx_good(*args) for args in zip(curves, splines, max_errors)):
             break
     else:
         # no break: raise if any spline is None or error exceeds tolerance
-        for c, s, error, max_err in zip(curves, splines, errors, max_errors):
-            if s is None or error > max_err:
-                raise ApproxNotFoundError(c, error)
-    return splines, errors
+        for c, s, max_err in zip(curves, splines, max_errors):
+            if s is None or not approx_good(c, s, max_err):
+                raise ApproxNotFoundError(c)
+    return splines

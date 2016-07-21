@@ -19,7 +19,7 @@ import collections
 import unittest
 import random
 
-from cu2qu import curve_to_quadratic, curves_to_quadratic
+from cu2qu import curve_to_quadratic, curves_to_quadratic, curve_spline_dist
 from cu2qu.benchmark import generate_curve
 
 MAX_ERR = 5
@@ -33,13 +33,17 @@ class CurveToQuadraticTest(unittest.TestCase):
 
         random.seed(1)
         curves = [generate_curve() for i in range(1000)]
+        cls.single_splines = [
+            curve_to_quadratic(c, MAX_ERR) for c in curves]
+        cls.single_errors = [
+            curve_spline_dist(c, s) for c, s in zip(curves, cls.single_splines)]
 
-        cls.single_splines, cls.single_errors = zip(*[
-            curve_to_quadratic(c, MAX_ERR) for c in curves])
-
-        cls.compat_splines, cls.compat_errors = zip(*[
-            curves_to_quadratic(curves[i:i + 3], [MAX_ERR] * 3)
-            for i in range(0, 300, 3)])
+        curve_groups = [curves[i:i + 3] for i in range(0, 300, 3)]
+        cls.compat_splines = [
+            curves_to_quadratic(c, [MAX_ERR] * 3) for c in curve_groups]
+        cls.compat_errors = [
+            [curve_spline_dist(c, s) for c, s in zip(curve_group, splines)]
+            for curve_group, splines in zip(curve_groups, cls.compat_splines)]
 
         cls.results = []
 
@@ -60,13 +64,13 @@ class CurveToQuadraticTest(unittest.TestCase):
         """
 
         expected = {
-            3: 5,
-            4: 31,
-            5: 74,
-            6: 228,
-            7: 416,
-            8: 242,
-            9: 4}
+            3: 6,
+            4: 26,
+            5: 82,
+            6: 232,
+            7: 360,
+            8: 266,
+            9: 28}
 
         results = collections.defaultdict(int)
         for spline in self.single_splines:
@@ -79,10 +83,10 @@ class CurveToQuadraticTest(unittest.TestCase):
         """Test that conversion results are unchanged for multiple curves."""
 
         expected = {
-            6: 3,
-            7: 34,
-            8: 62,
-            9: 1}
+            6: 11,
+            7: 35,
+            8: 49,
+            9: 5}
 
         results = collections.defaultdict(int)
         for splines in self.compat_splines:
