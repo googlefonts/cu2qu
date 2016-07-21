@@ -67,7 +67,7 @@ def dot(v1, v2):
 
 def lerp(a, b, t):
     """Linearly interpolate between scalars a and b at time t."""
-    return a * (1 - t) + b * t
+    return a + (b - a) * t
 
 
 def lerp_pt(p1, p2, t):
