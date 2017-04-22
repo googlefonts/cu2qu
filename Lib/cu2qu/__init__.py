@@ -268,7 +268,7 @@ def curves_to_quadratic(curves, max_errors):
 
 def elevate_quadratic(p):
     """Given a quadratic bezier curve, return its degree-elevated cubic."""
-    return [p[0], lerp_pt(p[0], p[1], 2/3), lerp_pt(p[2], p[1], 2/3), p[2]]
+    return [p[0], (p[0]*1/3) + (p[1]*2/3), (p[2]*1/3) + (p[1]*2/3), p[2]]
 
 
 def merge_curves(p):
@@ -277,11 +277,11 @@ def merge_curves(p):
     segments sharing the middle point.
     Inspired by an answer on math.stackexchange.com: http://goo.gl/hFFQl0
     """
-    (x1, y1), (x2, y2), (x3, y3), (x4, y4), (x5, y5), (x6, y6), (x7, y7) = p
-    k = dist((x5, y5), (x4, y4))/dist((x4, y4), (x3, y3))
-    off1 = (1+k)*x2 - k*x1, (1+k)*y2 - k*y1
-    off2 = ((1+k)*x6 - x7)/k, ((1+k)*y6 - y7)/k
-    return [(x1, y1), off1, off2, (x7, y7)]
+    p1, p2, p3, p4, p5, p6, p7 = p
+    k = abs(p5 - p4)/abs(p4 - p3)
+    off1 = (1+k)*p2 - k*p1
+    off2 = ((1+k)*p6 - p7)/k
+    return [p1, off1, off2, p7]
 
 
 def quadratic_to_curve(p):
@@ -293,6 +293,7 @@ def quadratic_to_curve(p):
     # TODO(anthrotype): return a sequence of cubic curves if the distance
     # from the input quadratic spline exceeds some user-defined tolerance?
     assert len(p) >= 3, "quadratic spline requires at least 3 points"
+    p = [complex(x, y) for (x, y) in p]
     q = list(p)
     count = 0
     num_offcurves = len(p) - 2
@@ -300,7 +301,7 @@ def quadratic_to_curve(p):
     for i in range(1, num_offcurves):
         off1 = p[i]
         off2 = p[i+1]
-        on = lerp_pt(off1, off2, 0.5)
+        on = off1*0.5 + off2*0.5
         q.insert(i+1+count, on)
         count += 1
     # elevate quadratic segments to cubic, and join them together
@@ -308,4 +309,4 @@ def quadratic_to_curve(p):
     for i in range(4, len(q), 2):
         cubic_segment = elevate_quadratic([q[i-2], q[i-1], q[i]])
         curve = merge_curves(curve + cubic_segment[1:])
-    return curve
+    return [(c.real, c.imag) for c in curve]
