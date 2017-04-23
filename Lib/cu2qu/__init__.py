@@ -277,6 +277,8 @@ def merge_curves(p):
     segments sharing the middle point.
     Inspired by an answer on math.stackexchange.com: http://goo.gl/hFFQl0
     """
+    if isinstance(p[0], tuple):
+        p = [complex(x, y) for (x, y) in p]
     p1, p2, p3, p4, p5, p6, p7 = p
     k = abs(p5 - p4)/abs(p4 - p3)
     off1 = (1+k)*p2 - k*p1
