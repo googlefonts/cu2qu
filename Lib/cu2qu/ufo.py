@@ -40,9 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 class IncompatibleGlyphsError(ValueError):
-
-    def __str__(self):
-        return ", ".join(set(repr(glyph.name) for glyph in self.args))
+    pass
 
 
 class UnequalZipLengthsError(ValueError):
@@ -147,15 +145,21 @@ def _glyphs_to_quadratic(glyphs, max_err, reverse_direction, stats):
     """Do the actual conversion of a set of compatible glyphs, after arguments
     have been set up.
 
-    Return True if the glyphs were modified, else return False.
+    Return tuple of booleans for glyphs_modified and glyphs_error.
     """
+
+    glyph_name = glyphs[0].name
+    num_incompatible_segments = 0
+    glyphs_error = False
 
     try:
         segments_by_location = zip(*[_get_segments(g) for g in glyphs])
     except UnequalZipLengthsError:
-        raise IncompatibleGlyphsError(*glyphs)
+        glyphs_error = True
+        logger.error("Glyph %s has incompatible contours" % glyph_name)
+        return False, glyphs_error
     if not any(segments_by_location):
-        return False
+        return False, glyphs_error
 
     # always modify input glyphs if reverse_direction is True
     glyphs_modified = reverse_direction
@@ -164,18 +168,24 @@ def _glyphs_to_quadratic(glyphs, max_err, reverse_direction, stats):
     for segments in segments_by_location:
         tag = segments[0][0]
         if not all(s[0] == tag for s in segments[1:]):
-            raise IncompatibleGlyphsError(*glyphs)
+            num_incompatible_segments += 1
+            continue
         if tag == 'curve':
             segments = _segments_to_quadratic(segments, max_err, stats)
             glyphs_modified = True
         new_segments_by_location.append(segments)
+
+    if num_incompatible_segments:
+        glyphs_error = True
+        logger.error("Glyph %s has %d incompatible segment(s)" % (
+            glyph_name, num_incompatible_segments))
 
     if glyphs_modified:
         new_segments_by_glyph = zip(*new_segments_by_location)
         for glyph, new_segments in zip(glyphs, new_segments_by_glyph):
             _set_segments(glyph, new_segments, reverse_direction)
 
-    return glyphs_modified
+    return glyphs_modified, glyphs_error
 
 
 def glyphs_to_quadratic(
@@ -203,7 +213,13 @@ def glyphs_to_quadratic(
         max_errors = [max_err] * len(glyphs)
     assert len(max_errors) == len(glyphs)
 
-    return _glyphs_to_quadratic(glyphs, max_errors, reverse_direction, stats)
+    glyphs_modified, glyphs_error = _glyphs_to_quadratic(
+        glyphs, max_errors, reverse_direction, stats)
+
+    if glyphs_error:
+        raise IncompatibleGlyphsError()
+
+    return glyphs_modified
 
 
 def fonts_to_quadratic(
@@ -243,6 +259,7 @@ def fonts_to_quadratic(
         max_errors = [f.info.unitsPerEm * max_err_em for f in fonts]
 
     modified = False
+    errored = False
     for name in set().union(*(f.keys() for f in fonts)):
         glyphs = []
         cur_max_errors = []
@@ -250,8 +267,14 @@ def fonts_to_quadratic(
             if name in font:
                 glyphs.append(font[name])
                 cur_max_errors.append(error)
-        modified |= _glyphs_to_quadratic(
+        glyphs_modified, glyphs_error = _glyphs_to_quadratic(
             glyphs, cur_max_errors, reverse_direction, stats)
+
+        modified |= glyphs_modified
+        errored |= glyphs_error
+
+    if errored:
+        raise IncompatibleGlyphsError()
 
     if modified and dump_stats:
         spline_lengths = sorted(stats.keys())
