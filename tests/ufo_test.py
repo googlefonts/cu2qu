@@ -158,9 +158,8 @@ class GlyphsToQuadraticTest(object):
             for operator, args in outline:
                 getattr(pen, operator)(*args)
             glyphs.append(glyph)
-        with pytest.raises(IncompatibleGlyphsError) as excinfo:
+        with pytest.raises(IncompatibleGlyphsError):
             glyphs_to_quadratic(glyphs)
-        assert excinfo.match("^'glyph[0-9]+'(, 'glyph[0-9]+')*$")
 
     def test_already_quadratic(self):
         glyph = Glyph()
