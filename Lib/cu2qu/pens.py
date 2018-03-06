@@ -36,26 +36,15 @@ class BaseFilterPen(AbstractPen):
     def qCurveTo(self, *points):
         self._check_contour_is_open()
         n = len(points)
-        if n == 1:
-            self.lineTo(points[0])
-        elif n > 1:
-            self.pen.qCurveTo(*points)
-            self.current_pt = points[-1]
-        else:
+        if n < 2:
             raise AssertionError("illegal qcurve segment point count: %d" % n)
+        self._qCurveTo(*points)
+        self.current_pt = points[-1]
 
-    def curveTo(self, *points):
+    def curveTo(self, pt1, pt2, pt3):
         self._check_contour_is_open()
-        n = len(points)
-        if n == 1:
-            self.lineTo(points[0])
-        elif n == 2:
-            self.qCurveTo(*points)
-        elif n > 2:
-            self.pen.curveTo(*points)
-            self.current_pt = points[-1]
-        else:
-            raise AssertionError("illegal curve segment point count: %d" % n)
+        self._curveTo(pt1, pt2, pt3)
+        self.current_pt = pt3
 
     def closePath(self):
         self._check_contour_is_open()
@@ -70,6 +59,12 @@ class BaseFilterPen(AbstractPen):
     def addComponent(self, glyphName, transformation):
         self._check_contour_is_closed()
         self.pen.addComponent(glyphName, transformation)
+
+    def _qCurveTo(self, *points):
+        self.pen.qCurveTo(*points)
+
+    def _curveTo(self, pt1, pt2, pt3):
+        self.pen.curveTo(pt1, pt2, pt3)
 
 
 class Cu2QuPen(BaseFilterPen):
@@ -88,29 +83,13 @@ class Cu2QuPen(BaseFilterPen):
         self.max_err = max_err
         self.stats = stats
 
-    def _curve_to_quadratic(self, pt1, pt2, pt3):
+    def _curveTo(self, pt1, pt2, pt3):
         curve = (self.current_pt, pt1, pt2, pt3)
         quadratic = curve_to_quadratic(curve, self.max_err)
         if self.stats is not None:
             n = str(len(quadratic) - 2)
             self.stats[n] = self.stats.get(n, 0) + 1
         self.qCurveTo(*quadratic[1:])
-
-    def curveTo(self, *points):
-        self._check_contour_is_open()
-        n = len(points)
-        if n == 3:
-            # this is the most common case, so we special-case it
-            self._curve_to_quadratic(*points)
-        elif n > 3:
-            for segment in decomposeSuperBezierSegment(points):
-                self._curve_to_quadratic(*segment)
-        elif n == 2:
-            self.qCurveTo(*points)
-        elif n == 1:
-            self.lineTo(points[0])
-        else:
-            raise AssertionError("illegal curve segment point count: %d" % n)
 
 
 class Qu2CuPen(BaseFilterPen):
@@ -121,19 +100,9 @@ class Qu2CuPen(BaseFilterPen):
     reverse_direction: flip the contours' direction but keep starting point.
     """
 
-    def _quadratic_to_curve(self, *points):
+    def _qCurveTo(self, *points):
         curve = quadratic_to_curve((self.current_pt,) + points)
         self.curveTo(*curve[1:])
-
-    def qCurveTo(self, *points):
-        self._check_contour_is_open()
-        n = len(points)
-        if n == 1:
-            self.lineTo(points[0])
-        elif n > 1:
-            self._quadratic_to_curve(*points)
-        else:
-            raise AssertionError("illegal qcurve segment point count: %d" % n)
 
 
 class BaseFilterPointPen(BasePointToSegmentPen):

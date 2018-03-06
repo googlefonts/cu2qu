@@ -145,14 +145,12 @@ class TestCu2QuPen(unittest.TestCase, _TestPenMixin):
         pen = DummyPen()
         quadpen = Cu2QuPen(pen, MAX_ERR)
         quadpen.moveTo((0, 0))
-        quadpen.qCurveTo((1, 1))
 
-        self.assertEqual(str(pen).splitlines(), [
-            "pen.moveTo((0, 0))",
-            "pen.lineTo((1, 1))",
-        ])
+        with self.assertRaisesRegex(
+                AssertionError, "illegal qcurve segment point count: 1"):
+            quadpen.qCurveTo((1, 1))
 
-    def test_qCurveTo_more_than_1_point(self):
+    def test_qCurveTo(self):
         pen = DummyPen()
         quadpen = Cu2QuPen(pen, MAX_ERR)
         quadpen.moveTo((0, 0))
@@ -163,37 +161,7 @@ class TestCu2QuPen(unittest.TestCase, _TestPenMixin):
             "pen.qCurveTo((1, 1), (2, 2))",
         ])
 
-    def test_curveTo_no_points(self):
-        quadpen = Cu2QuPen(DummyPen(), MAX_ERR)
-        quadpen.moveTo((0, 0))
-
-        with self.assertRaisesRegex(
-                AssertionError, "illegal curve segment point count: 0"):
-            quadpen.curveTo()
-
-    def test_curveTo_1_point(self):
-        pen = DummyPen()
-        quadpen = Cu2QuPen(pen, MAX_ERR)
-        quadpen.moveTo((0, 0))
-        quadpen.curveTo((1, 1))
-
-        self.assertEqual(str(pen).splitlines(), [
-            "pen.moveTo((0, 0))",
-            "pen.lineTo((1, 1))",
-        ])
-
-    def test_curveTo_2_points(self):
-        pen = DummyPen()
-        quadpen = Cu2QuPen(pen, MAX_ERR)
-        quadpen.moveTo((0, 0))
-        quadpen.curveTo((1, 1), (2, 2))
-
-        self.assertEqual(str(pen).splitlines(), [
-            "pen.moveTo((0, 0))",
-            "pen.qCurveTo((1, 1), (2, 2))",
-        ])
-
-    def test_curveTo_3_points(self):
+    def test_curveTo(self):
         pen = DummyPen()
         quadpen = Cu2QuPen(pen, MAX_ERR)
         quadpen.moveTo((0, 0))
@@ -202,19 +170,6 @@ class TestCu2QuPen(unittest.TestCase, _TestPenMixin):
         self.assertEqual(str(pen).splitlines(), [
             "pen.moveTo((0, 0))",
             "pen.qCurveTo((0.75, 0.75), (2.25, 2.25), (3, 3))",
-        ])
-
-    def test_curveTo_more_than_3_points(self):
-        # a 'SuperBezier' as described in fontTools.basePen.AbstractPen
-        pen = DummyPen()
-        quadpen = Cu2QuPen(pen, MAX_ERR)
-        quadpen.moveTo((0, 0))
-        quadpen.curveTo((1, 1), (2, 2), (3, 3), (4, 4))
-
-        self.assertEqual(str(pen).splitlines(), [
-            "pen.moveTo((0, 0))",
-            "pen.qCurveTo((0.75, 0.75), (1.625, 1.625), (2, 2))",
-            "pen.qCurveTo((2.375, 2.375), (3.25, 3.25), (4, 4))",
         ])
 
     def test_addComponent(self):
