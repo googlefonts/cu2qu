@@ -193,29 +193,6 @@ class TestCu2QuPointPen(unittest.TestCase, _TestPenMixin):
         self.pen_getter_name = 'getPointPen'
         self.draw_method_name = 'drawPoints'
 
-    def test_super_bezier_curve(self):
-        pen = DummyPointPen()
-        quadpen = Cu2QuPointPen(pen, MAX_ERR)
-        quadpen.beginPath()
-        quadpen.addPoint((0, 0), segmentType="move")
-        quadpen.addPoint((1, 1))
-        quadpen.addPoint((2, 2))
-        quadpen.addPoint((3, 3))
-        quadpen.addPoint(
-            (4, 4), segmentType="curve", smooth=False, name="up", selected=1)
-        quadpen.endPath()
-
-        self.assertEqual(str(pen).splitlines(), """\
-pen.beginPath()
-pen.addPoint((0, 0), name=None, segmentType='move', smooth=False)
-pen.addPoint((0.75, 0.75), name=None, segmentType=None, smooth=False)
-pen.addPoint((1.625, 1.625), name=None, segmentType=None, smooth=False)
-pen.addPoint((2, 2), name=None, segmentType='qcurve', smooth=True)
-pen.addPoint((2.375, 2.375), name=None, segmentType=None, smooth=False)
-pen.addPoint((3.25, 3.25), name=None, segmentType=None, smooth=False)
-pen.addPoint((4, 4), name='up', segmentType='qcurve', selected=1, smooth=False)
-pen.endPath()""".splitlines())
-
     def test__flushContour_restore_starting_point(self):
         pen = DummyPointPen()
         quadpen = Cu2QuPointPen(pen, MAX_ERR)

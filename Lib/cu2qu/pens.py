@@ -1,6 +1,6 @@
 from __future__ import print_function, division, absolute_import
 from cu2qu import curve_to_quadratic, quadratic_to_curve
-from fontTools.pens.basePen import AbstractPen, decomposeSuperBezierSegment
+from fontTools.pens.basePen import AbstractPen
 from fontTools.pens.reverseContourPen import ReverseContourPen
 from ufoLib.pointPen import BasePointToSegmentPen
 from ufoLib.pointPen import ReverseContourPointPen
@@ -128,35 +128,6 @@ class BaseFilterPointPen(BasePointToSegmentPen):
     def _filter_segments(self, segments):
         return segments  # no-op
 
-    @staticmethod
-    def _split_super_bezier_segments(points):
-        sub_segments = []
-        # n is the number of control points
-        n = len(points) - 1
-        if n == 2:
-            # a simple bezier curve segment
-            sub_segments.append(points)
-        elif n > 2:
-            # a "super" bezier; decompose it
-            on_curve, smooth, name, kwargs = points[-1]
-            num_sub_segments = n - 1
-            for i, sub_points in enumerate(decomposeSuperBezierSegment([
-                    pt for pt, _, _, _ in points])):
-                new_segment = []
-                for point in sub_points[:-1]:
-                    new_segment.append((point, False, None, {}))
-                if i == (num_sub_segments - 1):
-                    # the last on-curve keeps its original attributes
-                    new_segment.append((on_curve, smooth, name, kwargs))
-                else:
-                    # on-curves of sub-segments are always "smooth"
-                    new_segment.append((sub_points[-1], True, None, {}))
-                sub_segments.append(new_segment)
-        else:
-            raise AssertionError(
-                "expected 2 control points, found: %d" % n)
-        return sub_segments
-
     def _drawPoints(self, segments):
         pen = self.pen
         pen.beginPath()
@@ -219,18 +190,19 @@ class Cu2QuPointPen(BaseFilterPointPen):
         prev_on_curve = prev_points[-1][0]
         for segment_type, points in segments:
             if segment_type == 'curve':
-                for sub_points in self._split_super_bezier_segments(points):
-                    on_curve, smooth, name, kwargs = sub_points[-1]
-                    bcp1, bcp2 = sub_points[0][0], sub_points[1][0]
-                    cubic = [prev_on_curve, bcp1, bcp2, on_curve]
-                    quad = curve_to_quadratic(cubic, self.max_err)
-                    if self.stats is not None:
-                        n = str(len(quad) - 2)
-                        self.stats[n] = self.stats.get(n, 0) + 1
-                    new_points = [(pt, False, None, {}) for pt in quad[1:-1]]
-                    new_points.append((on_curve, smooth, name, kwargs))
-                    new_segments.append(["qcurve", new_points])
-                    prev_on_curve = sub_points[-1][0]
+                n = len(points)
+                assert n == 3, "illegal curve segment point count: %d" % n
+                on_curve, smooth, name, kwargs = points[-1]
+                bcp1, bcp2 = points[0][0], points[1][0]
+                cubic = [prev_on_curve, bcp1, bcp2, on_curve]
+                quad = curve_to_quadratic(cubic, self.max_err)
+                if self.stats is not None:
+                    n = str(len(quad) - 2)
+                    self.stats[n] = self.stats.get(n, 0) + 1
+                new_points = [(pt, False, None, {}) for pt in quad[1:-1]]
+                new_points.append((on_curve, smooth, name, kwargs))
+                new_segments.append(["qcurve", new_points])
+                prev_on_curve = points[-1][0]
             else:
                 new_segments.append([segment_type, points])
                 prev_on_curve = points[-1][0]
