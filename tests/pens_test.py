@@ -227,41 +227,6 @@ class TestCu2QuPen(unittest.TestCase, _TestPenMixin):
             "pen.addComponent('a', (1, 2, 3, 4, 5.0, 6.0))",
         ])
 
-    def test_ignore_single_points(self):
-        pen = DummyPen()
-        try:
-            logging.captureWarnings(True)
-            with CapturingLogHandler("py.warnings", level="WARNING") as log:
-                quadpen = Cu2QuPen(pen, MAX_ERR, ignore_single_points=True)
-        finally:
-            logging.captureWarnings(False)
-        quadpen.moveTo((0, 0))
-        quadpen.endPath()
-        quadpen.moveTo((1, 1))
-        quadpen.closePath()
-
-        self.assertGreaterEqual(len(log.records), 1)
-        self.assertIn("ignore_single_points is deprecated",
-                      log.records[0].args[0])
-
-        # single-point contours were ignored, so the pen commands are empty
-        self.assertFalse(pen.commands)
-
-        # redraw without ignoring single points
-        quadpen.ignore_single_points = False
-        quadpen.moveTo((0, 0))
-        quadpen.endPath()
-        quadpen.moveTo((1, 1))
-        quadpen.closePath()
-
-        self.assertTrue(pen.commands)
-        self.assertEqual(str(pen).splitlines(), [
-            "pen.moveTo((0, 0))",
-            "pen.endPath()",
-            "pen.moveTo((1, 1))",
-            "pen.closePath()"
-        ])
-
 
 class TestCu2QuPointPen(unittest.TestCase, _TestPenMixin):
 

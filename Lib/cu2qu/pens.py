@@ -8,19 +8,11 @@ from ufoLib.pointPen import ReverseContourPointPen
 
 class BaseFilterPen(AbstractPen):
 
-    def __init__(self, other_pen, reverse_direction=False,
-                 ignore_single_points=False):
+    def __init__(self, other_pen, reverse_direction=False):
         if reverse_direction:
             self.pen = ReverseContourPen(other_pen)
         else:
             self.pen = other_pen
-        if ignore_single_points:
-            import warnings
-            warnings.warn("ignore_single_points is deprecated and "
-                          "will be removed in future versions",
-                          UserWarning, stacklevel=2)
-        self.ignore_single_points = ignore_single_points
-        self.start_pt = None
         self.current_pt = None
 
     def _check_contour_is_open(self):
@@ -31,20 +23,13 @@ class BaseFilterPen(AbstractPen):
         if self.current_pt is not None:
             raise AssertionError("closePath or endPath is required")
 
-    def _add_moveTo(self):
-        if self.start_pt is not None:
-            self.pen.moveTo(self.start_pt)
-            self.start_pt = None
-
     def moveTo(self, pt):
         self._check_contour_is_closed()
-        self.start_pt = self.current_pt = pt
-        if not self.ignore_single_points:
-            self._add_moveTo()
+        self.pen.moveTo(pt)
+        self.current_pt = pt
 
     def lineTo(self, pt):
         self._check_contour_is_open()
-        self._add_moveTo()
         self.pen.lineTo(pt)
         self.current_pt = pt
 
@@ -54,7 +39,6 @@ class BaseFilterPen(AbstractPen):
         if n == 1:
             self.lineTo(points[0])
         elif n > 1:
-            self._add_moveTo()
             self.pen.qCurveTo(*points)
             self.current_pt = points[-1]
         else:
@@ -68,7 +52,6 @@ class BaseFilterPen(AbstractPen):
         elif n == 2:
             self.qCurveTo(*points)
         elif n > 2:
-            self._add_moveTo()
             self.pen.curveTo(*points)
             self.current_pt = points[-1]
         else:
@@ -76,16 +59,13 @@ class BaseFilterPen(AbstractPen):
 
     def closePath(self):
         self._check_contour_is_open()
-        if self.start_pt is None:
-            # if 'start_pt' is _not_ None, we are ignoring single-point paths
-            self.pen.closePath()
-        self.current_pt = self.start_pt = None
+        self.pen.closePath()
+        self.current_pt = None
 
     def endPath(self):
         self._check_contour_is_open()
-        if self.start_pt is None:
-            self.pen.endPath()
-        self.current_pt = self.start_pt = None
+        self.pen.endPath()
+        self.current_pt = None
 
     def addComponent(self, glyphName, transformation):
         self._check_contour_is_closed()
@@ -100,19 +80,11 @@ class Cu2QuPen(BaseFilterPen):
     max_err: maximum approximation error in font units.
     reverse_direction: flip the contours' direction but keep starting point.
     stats: a dictionary counting the point numbers of quadratic segments.
-    ignore_single_points: don't emit contours containing only a single point.
-
-    NOTE: The "ignore_single_points" argument is deprecated since v1.3.0,
-    which dropped Robofab subpport. It's no longer needed to special-case
-    UFO2-style anchors (aka "named points") when using ufoLib >= 2.0,
-    as these are no longer drawn onto pens as single-point contours,
-    but are handled separately as anchors.
     """
 
     def __init__(self, other_pen, max_err, reverse_direction=False,
-                 stats=None, ignore_single_points=False):
-        super(Cu2QuPen, self).__init__(
-            other_pen, reverse_direction, ignore_single_points)
+                 stats=None):
+        super(Cu2QuPen, self).__init__(other_pen, reverse_direction)
         self.max_err = max_err
         self.stats = stats
 
@@ -147,7 +119,6 @@ class Qu2CuPen(BaseFilterPen):
 
     other_pen: another SegmentPen used to draw the transformed outline.
     reverse_direction: flip the contours' direction but keep starting point.
-    ignore_single_points: don't emit contours containing only a single point.
     """
 
     def _quadratic_to_curve(self, *points):
