@@ -6,7 +6,7 @@ Cython is licensed under the Apache 2.0 Software License.
 # cython.* namespace for pure mode.
 from __future__ import absolute_import
 
-__version__ = "0.29.15"
+__version__ = "0.29.14"
 
 try:
     from __builtin__ import basestring
