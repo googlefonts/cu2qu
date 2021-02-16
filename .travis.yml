@@ -21,7 +21,7 @@ matrix:
 
 branches:
   only:
-    - master
+    - main
     - /^v\d+\.\d+.*$/
 
 install: pip install tox
