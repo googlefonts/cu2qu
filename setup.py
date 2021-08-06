@@ -191,8 +191,10 @@ class cython_sdist(_sdist):
         _sdist.run(self)
 
 
-# don't build extensions if user explicitly requested --without-cython
-if with_cython is False:
+# don't build extensions if user explicitly requested --without-cython or we're
+# building for PyPy.
+is_pypy = hasattr(sys, "pypy_version_info")
+if with_cython is False or (with_cython is None and is_pypy):
     extensions = []
 else:
     extensions = [
