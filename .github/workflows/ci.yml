@@ -50,7 +50,9 @@ jobs:
         with:
           python-version: 'pypy-3.7'
       - name: Install tox
-        run: python -m pip install -U pip setuptools wheel
+        run: python -m pip install -U pip setuptools wheel pytest -r requirements.txt
+      - name: Test
+        run: pytest
       - name: Build sdist and pure wheel
         run: python setup.py sdist bdist_wheel
       - uses: actions/upload-artifact@v2
