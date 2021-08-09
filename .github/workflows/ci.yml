@@ -18,6 +18,8 @@ jobs:
         os: [ "ubuntu-20.04", "windows-2019", "macos-11" ]
     env:
       CIBW_ARCHS: auto64
+      # macOS: Explicitly list ARM variants here for cross-compilation.
+      CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
       CIBW_SKIP: pp*
       CIBW_ENVIRONMENT: CU2QU_WITH_CYTHON="true"
     steps:
