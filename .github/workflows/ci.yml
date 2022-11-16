@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ "ubuntu-20.04", "windows-2019", "macos-11" ]
+        os: [ "ubuntu-latest", "windows-latest", "macos-latest" ]
     env:
       CIBW_ARCHS: auto64
       # macOS: Explicitly list ARM variants here for cross-compilation.
@@ -41,7 +41,7 @@ jobs:
 
   build-pure:
     name: Build sdist and pure wheel
-    runs-on: "ubuntu-20.04"
+    runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v2
         with:
@@ -50,7 +50,7 @@ jobs:
       # Use PyPy just so we can test the package on it.
       - uses: actions/setup-python@v2
         with:
-          python-version: 'pypy-3.7'
+          python-version: 'pypy-3.9'
       - name: Install packaging tooling
         run: python -m pip install -U pip setuptools wheel
       - name: Build sdist and pure wheel
